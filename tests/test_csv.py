@@ -186,6 +186,49 @@ class TestReadCsv:
         with pytest.raises(TypeError, match="delimiter must be a string"):
             ar.read_csv(csv_path, delimiter=1)
 
+    def test_read_csv_supports_txt_extension(self, tmp_path):
+        csv_path = tmp_path / "data.txt"
+        csv_path.write_text("id,name\n1,Alice\n2,Bob\n")
+
+        frame = ar.read_csv(csv_path)
+        assert list(frame.columns) == ["id", "name"]
+        assert frame.shape == (2, 2)
+
+    def test_read_csv_supports_tsv_extension(self, tmp_path):
+        csv_path = tmp_path / "data.tsv"
+        csv_path.write_text("id\tname\n1\tAlice\n2\tBob\n")
+
+        frame = ar.read_csv(csv_path, delimiter="\t")
+        assert list(frame.columns) == ["id", "name"]
+        assert frame.shape == (2, 2)
+        df = ar.to_pandas(frame)
+        assert df["id"].tolist() == [1, 2]
+        assert df["name"].tolist() == ["Alice", "Bob"]
+
+    def test_read_csv_accepts_uppercase_extension(self, tmp_path):
+        csv_path = tmp_path / "data.CSV"
+        csv_path.write_text("id,name\n1,Alice\n")
+
+        frame = ar.read_csv(csv_path)
+        assert frame.shape == (1, 2)
+        assert list(frame.columns) == ["id", "name"]
+
+    def test_read_csv_tab_delimiter_with_quoted_field(self, tmp_path):
+        csv_path = tmp_path / "quoted.tsv"
+        csv_path.write_bytes(b'id\tcomment\n1\t"hello\tworld"\n2\t"goodbye"\n')
+
+        frame = ar.read_csv(csv_path, delimiter="\t")
+        df = ar.to_pandas(frame)
+        assert df["comment"].tolist() == ["hello\tworld", "goodbye"]
+
+    def test_read_csv_semicolon_delimiter_with_quoted_delimiter(self, tmp_path):
+        csv_path = tmp_path / "semi.csv"
+        csv_path.write_text('id;notes\n1;"contains;semicolon"\n2;"normal"\n')
+
+        frame = ar.read_csv(csv_path, delimiter=";")
+        df = ar.to_pandas(frame)
+        assert df["notes"].tolist() == ["contains;semicolon", "normal"]
+
     def test_invalid_usecols(self, tmp_path):
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("id,name\n1,Alice\n")
@@ -1180,6 +1223,99 @@ class TestReadCsv:
             )
 
 
+class TestEscapedQuotesMultiline:
+    def test_escaped_quote_in_singleline_field(self, tmp_path):
+        csv_path = tmp_path / "escaped_singleline.csv"
+        csv_path.write_text('id,text\n1,"He said ""hello"" to me"\n')
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'He said "hello" to me'
+
+    def test_escaped_double_quotes_before_embedded_lf(self, tmp_path):
+        csv_path = tmp_path / "escaped_before_lf.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"start ""quote""\nline"\n2,ok\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'start "quote"\nline'
+        assert df["text"].iloc[1] == "ok"
+
+    def test_escaped_double_quotes_after_embedded_lf(self, tmp_path):
+        csv_path = tmp_path / "escaped_after_lf.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line\nend ""quote"""\n2,ok\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line\nend "quote"'
+        assert df["text"].iloc[1] == "ok"
+
+    def test_escaped_double_quotes_before_embedded_crlf(self, tmp_path):
+        csv_path = tmp_path / "escaped_before_crlf.csv"
+        csv_path.write_bytes(
+            b'id,text\r\n1,"start ""quote""\r\nline"\r\n2,ok\r\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'start "quote"\r\nline'
+        assert df["text"].iloc[1] == "ok"
+
+    def test_escaped_double_quotes_after_embedded_crlf(self, tmp_path):
+        csv_path = tmp_path / "escaped_after_crlf.csv"
+        csv_path.write_bytes(
+            b'id,text\r\n1,"line\r\nend ""quote"""\r\n2,ok\r\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line\r\nend "quote"'
+        assert df["text"].iloc[1] == "ok"
+
+    def test_escaped_quotes_on_multiple_lines(self, tmp_path):
+        csv_path = tmp_path / "escaped_multiline.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line1\nline2 ""quoted"" text"\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line1\nline2 "quoted" text'
+
+    def test_multiline_escaped_quote_roundtrip(self, tmp_path):
+        csv_path = tmp_path / "roundtrip.csv"
+        df_in = pd.DataFrame({"text": ['start "quote"\nend']})
+        df_in.to_csv(csv_path, index=False, line_terminator="\n")
+
+        frame = ar.read_csv(csv_path)
+        df_out = ar.to_pandas(frame)
+        assert df_out["text"].iloc[0] == 'start "quote"\nend'
+
+    def test_multiline_escaped_quote_roundtrip_multiple_quotes(self, tmp_path):
+        csv_path = tmp_path / "roundtrip_quotes.csv"
+        df_in = pd.DataFrame({"text": ['"one"\n"two"\nthree']})
+        df_in.to_csv(csv_path, index=False, line_terminator="\n")
+
+        frame = ar.read_csv(csv_path)
+        df_out = ar.to_pandas(frame)
+        assert df_out["text"].iloc[0] == '"one"\n"two"\nthree'
+
+    def test_record_complete_not_fooled_by_escaped_quote_at_line_end(self, tmp_path):
+        csv_path = tmp_path / "escaped_quote_line_end.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line with escaped quote at end ""\nstill in field"\n2,ok\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line with escaped quote at end "\nstill in field'
+        assert df["text"].iloc[1] == "ok"
+
+
 class TestScanCsv:
     def test_scan_schema(self, sample_csv):
         schema = ar.scan_csv(sample_csv)
@@ -1195,6 +1331,37 @@ class TestScanCsv:
         schema = ar.scan_csv(csv_path, encoding="latin-1")
 
         assert schema == {"name": "string"}
+
+    def test_scan_csv_rejects_empty_header_name(self, tmp_path):
+        csv_path = tmp_path / "empty_header_scan.csv"
+        csv_path.write_text("a,,c\n1,2,3\n")
+
+        with pytest.raises(
+            ar.CsvReadError,
+            match="CSV header contains an empty column name",
+        ):
+            ar.scan_csv(csv_path)
+
+    def test_scan_csv_rejects_duplicate_header_names(self, tmp_path):
+        csv_path = tmp_path / "duplicate_headers_scan.csv"
+        csv_path.write_text("a,a\n1,2\n")
+
+        with pytest.raises(ar.CsvReadError, match="Duplicate column name: a"):
+            ar.scan_csv(csv_path)
+
+    def test_scan_csv_custom_null_values_are_case_insensitive(self, tmp_path):
+        csv_path = tmp_path / "null_values_scan.csv"
+        csv_path.write_text("a\n1\nNA\nna\n")
+
+        schema = ar.scan_csv(csv_path, null_values=["NA"])
+        assert schema["a"] == "int64"
+
+    def test_scan_csv_trims_headers_by_default(self, tmp_path):
+        csv_path = tmp_path / "trim_headers_default.csv"
+        csv_path.write_text(" name , age \n1,2\n")
+
+        schema = ar.scan_csv(csv_path)
+        assert list(schema.keys()) == ["name", "age"]
 
     def test_scan_utf16_encoding_with_nul_bytes_reads_successfully(self, tmp_path):
         csv_path = tmp_path / "utf16.csv"
@@ -1354,6 +1521,34 @@ class TestScanCsv:
 
         with pytest.raises(TypeError, match="delimiter must be a string"):
             ar.scan_csv(csv_path, delimiter=1)
+
+    def test_scan_csv_supports_txt_extension(self, tmp_path):
+        csv_path = tmp_path / "data.txt"
+        csv_path.write_text("id,name\n1,Alice\n")
+
+        schema = ar.scan_csv(csv_path)
+        assert schema == {"id": "int64", "name": "string"}
+
+    def test_scan_csv_supports_tsv_extension(self, tmp_path):
+        csv_path = tmp_path / "data.tsv"
+        csv_path.write_text("id\tname\n1\tAlice\n")
+
+        schema = ar.scan_csv(csv_path, delimiter="\t")
+        assert schema == {"id": "int64", "name": "string"}
+
+    def test_scan_csv_accepts_uppercase_extension(self, tmp_path):
+        csv_path = tmp_path / "data.TSV"
+        csv_path.write_text("id\tname\n1\tAlice\n")
+
+        schema = ar.scan_csv(csv_path, delimiter="\t")
+        assert schema == {"id": "int64", "name": "string"}
+
+    def test_scan_csv_tab_delimiter_with_quoted_field(self, tmp_path):
+        csv_path = tmp_path / "quoted.tsv"
+        csv_path.write_bytes(b'id\tcomment\n1\t"hello\tworld"\n2\t"goodbye"\n')
+
+        schema = ar.scan_csv(csv_path, delimiter="\t")
+        assert schema == {"id": "int64", "comment": "string"}
 
     def test_scan_empty_file_raises(self, tmp_path):
         csv_path = tmp_path / "empty.csv"
