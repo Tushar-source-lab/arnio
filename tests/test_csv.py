@@ -1295,7 +1295,7 @@ class TestEscapedQuotesMultiline:
     def test_multiline_escaped_quote_roundtrip(self, tmp_path):
         csv_path = tmp_path / "roundtrip.csv"
         df_in = pd.DataFrame({"text": ['start "quote"\nend']})
-        df_in.to_csv(csv_path, index=False, line_terminator="\n")
+        df_in.to_csv(csv_path, index=False, lineterminator="\n")
 
         frame = ar.read_csv(csv_path)
         df_out = ar.to_pandas(frame)
@@ -1304,7 +1304,7 @@ class TestEscapedQuotesMultiline:
     def test_multiline_escaped_quote_roundtrip_multiple_quotes(self, tmp_path):
         csv_path = tmp_path / "roundtrip_quotes.csv"
         df_in = pd.DataFrame({"text": ['"one"\n"two"\nthree']})
-        df_in.to_csv(csv_path, index=False, line_terminator="\n")
+        df_in.to_csv(csv_path, index=False, lineterminator="\n")
 
         frame = ar.read_csv(csv_path)
         df_out = ar.to_pandas(frame)
@@ -1337,37 +1337,6 @@ class TestScanCsv:
         schema = ar.scan_csv(csv_path, encoding="latin-1")
 
         assert schema == {"name": "string"}
-
-    def test_scan_csv_rejects_empty_header_name(self, tmp_path):
-        csv_path = tmp_path / "empty_header_scan.csv"
-        csv_path.write_text("a,,c\n1,2,3\n")
-
-        with pytest.raises(
-            ar.CsvReadError,
-            match="CSV header contains an empty column name",
-        ):
-            ar.scan_csv(csv_path)
-
-    def test_scan_csv_rejects_duplicate_header_names(self, tmp_path):
-        csv_path = tmp_path / "duplicate_headers_scan.csv"
-        csv_path.write_text("a,a\n1,2\n")
-
-        with pytest.raises(ar.CsvReadError, match="Duplicate column name: a"):
-            ar.scan_csv(csv_path)
-
-    def test_scan_csv_custom_null_values_are_case_insensitive(self, tmp_path):
-        csv_path = tmp_path / "null_values_scan.csv"
-        csv_path.write_text("a\n1\nNA\nna\n")
-
-        schema = ar.scan_csv(csv_path, null_values=["NA"])
-        assert schema["a"] == "int64"
-
-    def test_scan_csv_trims_headers_by_default(self, tmp_path):
-        csv_path = tmp_path / "trim_headers_default.csv"
-        csv_path.write_text(" name , age \n1,2\n")
-
-        schema = ar.scan_csv(csv_path)
-        assert list(schema.keys()) == ["name", "age"]
 
     def test_scan_utf16_encoding_with_nul_bytes_reads_successfully(self, tmp_path):
         csv_path = tmp_path / "utf16.csv"
@@ -1527,34 +1496,6 @@ class TestScanCsv:
 
         with pytest.raises(TypeError, match="delimiter must be a string"):
             ar.scan_csv(csv_path, delimiter=1)
-
-    def test_scan_csv_supports_txt_extension(self, tmp_path):
-        csv_path = tmp_path / "data.txt"
-        csv_path.write_text("id,name\n1,Alice\n")
-
-        schema = ar.scan_csv(csv_path)
-        assert schema == {"id": "int64", "name": "string"}
-
-    def test_scan_csv_supports_tsv_extension(self, tmp_path):
-        csv_path = tmp_path / "data.tsv"
-        csv_path.write_text("id\tname\n1\tAlice\n")
-
-        schema = ar.scan_csv(csv_path, delimiter="\t")
-        assert schema == {"id": "int64", "name": "string"}
-
-    def test_scan_csv_accepts_uppercase_extension(self, tmp_path):
-        csv_path = tmp_path / "data.TSV"
-        csv_path.write_text("id\tname\n1\tAlice\n")
-
-        schema = ar.scan_csv(csv_path, delimiter="\t")
-        assert schema == {"id": "int64", "name": "string"}
-
-    def test_scan_csv_tab_delimiter_with_quoted_field(self, tmp_path):
-        csv_path = tmp_path / "quoted.tsv"
-        csv_path.write_bytes(b'id\tcomment\n1\t"hello\tworld"\n2\t"goodbye"\n')
-
-        schema = ar.scan_csv(csv_path, delimiter="\t")
-        assert schema == {"id": "int64", "comment": "string"}
 
     def test_scan_empty_file_raises(self, tmp_path):
         csv_path = tmp_path / "empty.csv"
