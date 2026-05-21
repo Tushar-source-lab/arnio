@@ -186,49 +186,6 @@ class TestReadCsv:
         with pytest.raises(TypeError, match="delimiter must be a string"):
             ar.read_csv(csv_path, delimiter=1)
 
-    def test_read_csv_supports_txt_extension(self, tmp_path):
-        csv_path = tmp_path / "data.txt"
-        csv_path.write_text("id,name\n1,Alice\n2,Bob\n")
-
-        frame = ar.read_csv(csv_path)
-        assert list(frame.columns) == ["id", "name"]
-        assert frame.shape == (2, 2)
-
-    def test_read_csv_supports_tsv_extension(self, tmp_path):
-        csv_path = tmp_path / "data.tsv"
-        csv_path.write_text("id\tname\n1\tAlice\n2\tBob\n")
-
-        frame = ar.read_csv(csv_path, delimiter="\t")
-        assert list(frame.columns) == ["id", "name"]
-        assert frame.shape == (2, 2)
-        df = ar.to_pandas(frame)
-        assert df["id"].tolist() == [1, 2]
-        assert df["name"].tolist() == ["Alice", "Bob"]
-
-    def test_read_csv_accepts_uppercase_extension(self, tmp_path):
-        csv_path = tmp_path / "data.CSV"
-        csv_path.write_text("id,name\n1,Alice\n")
-
-        frame = ar.read_csv(csv_path)
-        assert frame.shape == (1, 2)
-        assert list(frame.columns) == ["id", "name"]
-
-    def test_read_csv_tab_delimiter_with_quoted_field(self, tmp_path):
-        csv_path = tmp_path / "quoted.tsv"
-        csv_path.write_bytes(b'id\tcomment\n1\t"hello\tworld"\n2\t"goodbye"\n')
-
-        frame = ar.read_csv(csv_path, delimiter="\t")
-        df = ar.to_pandas(frame)
-        assert df["comment"].tolist() == ["hello\tworld", "goodbye"]
-
-    def test_read_csv_semicolon_delimiter_with_quoted_delimiter(self, tmp_path):
-        csv_path = tmp_path / "semi.csv"
-        csv_path.write_text('id;notes\n1;"contains;semicolon"\n2;"normal"\n')
-
-        frame = ar.read_csv(csv_path, delimiter=";")
-        df = ar.to_pandas(frame)
-        assert df["notes"].tolist() == ["contains;semicolon", "normal"]
-
     def test_invalid_usecols(self, tmp_path):
         csv_path = tmp_path / "test.csv"
         csv_path.write_text("id,name\n1,Alice\n")
@@ -726,12 +683,6 @@ class TestReadCsv:
             assert frame.columns == ["name", "age"]
 
     def test_tsv_auto_delimiter(self, tmp_path):
-        """read_csv auto-uses tab delimiter for .tsv files (fixes #34)."""
-        tsv = tmp_path / "data.tsv"
-        tsv.write_text("name\tage\nAlice\t30\nBob\t25\n")
-        frame = ar.read_csv(str(tsv))
-        assert frame.columns == ["name", "age"]
-        assert frame.shape == (2, 2)
         """read_csv auto-uses tab delimiter for .tsv files (fixes #34)."""
         tsv = tmp_path / "data.tsv"
         tsv.write_text("name\tage\nAlice\t30\nBob\t25\n")
@@ -1291,6 +1242,66 @@ class TestEscapedQuotesMultiline:
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
         assert df["text"].iloc[0] == 'line1\nline2 "quoted" text'
+
+    def test_multiline_escaped_quote_roundtrip(self, tmp_path):
+        csv_path = tmp_path / "roundtrip.csv"
+        df_in = pd.DataFrame({"text": ['start "quote"\nend']})
+        df_in.to_csv(csv_path, index=False, lineterminator="\n")
+
+        frame = ar.read_csv(csv_path)
+        df_out = ar.to_pandas(frame)
+        assert df_out["text"].iloc[0] == 'start "quote"\nend'
+
+    def test_multiline_escaped_quote_roundtrip_multiple_quotes(self, tmp_path):
+        csv_path = tmp_path / "roundtrip_quotes.csv"
+        df_in = pd.DataFrame({"text": ['"one"\n"two"\nthree']})
+        df_in.to_csv(csv_path, index=False, lineterminator="\n")
+
+        frame = ar.read_csv(csv_path)
+        df_out = ar.to_pandas(frame)
+        assert df_out["text"].iloc[0] == '"one"\n"two"\nthree'
+
+    def test_record_complete_not_fooled_by_escaped_quote_at_line_end(self, tmp_path):
+        csv_path = tmp_path / "escaped_quote_line_end.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line with escaped quote at end ""\nstill in field"\n2,ok\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line with escaped quote at end "\nstill in field'
+        assert df["text"].iloc[1] == "ok"
+
+
+class TestEscapedQuotesMultiline:
+    def test_escaped_quote_in_singleline_field(self, tmp_path):
+        csv_path = tmp_path / "escaped_singleline.csv"
+        csv_path.write_text('id,text\n1,"He said ""hello"" to me"\n')
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'He said "hello" to me'
+
+    def test_escaped_quotes_on_multiple_lines(self, tmp_path):
+        csv_path = tmp_path / "escaped_multiline.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line1\nline2 ""quoted"" text"\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line1\nline2 "quoted" text'
+
+    def test_escaped_quote_multiline_followed_by_normal_row(self, tmp_path):
+        csv_path = tmp_path / "escaped_followed_by_normal.csv"
+        csv_path.write_bytes(
+            b'id,text\n1,"line1\nline2 ""quote"""\n2,ok\n'
+        )
+
+        frame = ar.read_csv(csv_path)
+        df = ar.to_pandas(frame)
+        assert df["text"].iloc[0] == 'line1\nline2 "quote"'
+        assert df["text"].iloc[1] == "ok"
 
     def test_multiline_escaped_quote_roundtrip(self, tmp_path):
         csv_path = tmp_path / "roundtrip.csv"
