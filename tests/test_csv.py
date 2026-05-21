@@ -732,6 +732,12 @@ class TestReadCsv:
         frame = ar.read_csv(str(tsv))
         assert frame.columns == ["name", "age"]
         assert frame.shape == (2, 2)
+        """read_csv auto-uses tab delimiter for .tsv files (fixes #34)."""
+        tsv = tmp_path / "data.tsv"
+        tsv.write_text("name\tage\nAlice\t30\nBob\t25\n")
+        frame = ar.read_csv(str(tsv))
+        assert frame.columns == ["name", "age"]
+        assert frame.shape == (2, 2)
 
     def test_tsv_explicit_delimiter_honoured(self, tmp_path):
         """Explicitly supplied delimiter is never overridden for .tsv (fixes #34)."""
