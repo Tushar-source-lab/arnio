@@ -1191,9 +1191,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_double_quotes_before_embedded_lf(self, tmp_path):
         csv_path = tmp_path / "escaped_before_lf.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"start ""quote""\nline"\n2,ok\n'
-        )
+        csv_path.write_bytes(b'id,text\n1,"start ""quote""\nline"\n2,ok\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1202,9 +1200,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_double_quotes_after_embedded_lf(self, tmp_path):
         csv_path = tmp_path / "escaped_after_lf.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"line\nend ""quote"""\n2,ok\n'
-        )
+        csv_path.write_bytes(b'id,text\n1,"line\nend ""quote"""\n2,ok\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1213,9 +1209,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_double_quotes_before_embedded_crlf(self, tmp_path):
         csv_path = tmp_path / "escaped_before_crlf.csv"
-        csv_path.write_bytes(
-            b'id,text\r\n1,"start ""quote""\r\nline"\r\n2,ok\r\n'
-        )
+        csv_path.write_bytes(b'id,text\r\n1,"start ""quote""\r\nline"\r\n2,ok\r\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1224,9 +1218,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_double_quotes_after_embedded_crlf(self, tmp_path):
         csv_path = tmp_path / "escaped_after_crlf.csv"
-        csv_path.write_bytes(
-            b'id,text\r\n1,"line\r\nend ""quote"""\r\n2,ok\r\n'
-        )
+        csv_path.write_bytes(b'id,text\r\n1,"line\r\nend ""quote"""\r\n2,ok\r\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1235,9 +1227,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_quotes_on_multiple_lines(self, tmp_path):
         csv_path = tmp_path / "escaped_multiline.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"line1\nline2 ""quoted"" text"\n'
-        )
+        csv_path.write_bytes(b'id,text\n1,"line1\nline2 ""quoted"" text"\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1284,9 +1274,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_quotes_on_multiple_lines(self, tmp_path):
         csv_path = tmp_path / "escaped_multiline.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"line1\nline2 ""quoted"" text"\n'
-        )
+        csv_path.write_bytes(b'id,text\n1,"line1\nline2 ""quoted"" text"\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
@@ -1294,9 +1282,7 @@ class TestEscapedQuotesMultiline:
 
     def test_escaped_quote_multiline_followed_by_normal_row(self, tmp_path):
         csv_path = tmp_path / "escaped_followed_by_normal.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"line1\nline2 ""quote"""\n2,ok\n'
-        )
+        csv_path.write_bytes(b'id,text\n1,"line1\nline2 ""quote"""\n2,ok\n')
 
         frame = ar.read_csv(csv_path)
         df = ar.to_pandas(frame)
