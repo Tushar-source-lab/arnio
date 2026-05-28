@@ -1263,62 +1263,6 @@ class TestEscapedQuotesMultiline:
         assert df["text"].iloc[1] == "ok"
 
 
-class TestEscapedQuotesMultiline:
-    def test_escaped_quote_in_singleline_field(self, tmp_path):
-        csv_path = tmp_path / "escaped_singleline.csv"
-        csv_path.write_text('id,text\n1,"He said ""hello"" to me"\n')
-
-        frame = ar.read_csv(csv_path)
-        df = ar.to_pandas(frame)
-        assert df["text"].iloc[0] == 'He said "hello" to me'
-
-    def test_escaped_quotes_on_multiple_lines(self, tmp_path):
-        csv_path = tmp_path / "escaped_multiline.csv"
-        csv_path.write_bytes(b'id,text\n1,"line1\nline2 ""quoted"" text"\n')
-
-        frame = ar.read_csv(csv_path)
-        df = ar.to_pandas(frame)
-        assert df["text"].iloc[0] == 'line1\nline2 "quoted" text'
-
-    def test_escaped_quote_multiline_followed_by_normal_row(self, tmp_path):
-        csv_path = tmp_path / "escaped_followed_by_normal.csv"
-        csv_path.write_bytes(b'id,text\n1,"line1\nline2 ""quote"""\n2,ok\n')
-
-        frame = ar.read_csv(csv_path)
-        df = ar.to_pandas(frame)
-        assert df["text"].iloc[0] == 'line1\nline2 "quote"'
-        assert df["text"].iloc[1] == "ok"
-
-    def test_multiline_escaped_quote_roundtrip(self, tmp_path):
-        csv_path = tmp_path / "roundtrip.csv"
-        df_in = pd.DataFrame({"text": ['start "quote"\nend']})
-        df_in.to_csv(csv_path, index=False, lineterminator="\n")
-
-        frame = ar.read_csv(csv_path)
-        df_out = ar.to_pandas(frame)
-        assert df_out["text"].iloc[0] == 'start "quote"\nend'
-
-    def test_multiline_escaped_quote_roundtrip_multiple_quotes(self, tmp_path):
-        csv_path = tmp_path / "roundtrip_quotes.csv"
-        df_in = pd.DataFrame({"text": ['"one"\n"two"\nthree']})
-        df_in.to_csv(csv_path, index=False, lineterminator="\n")
-
-        frame = ar.read_csv(csv_path)
-        df_out = ar.to_pandas(frame)
-        assert df_out["text"].iloc[0] == '"one"\n"two"\nthree'
-
-    def test_record_complete_not_fooled_by_escaped_quote_at_line_end(self, tmp_path):
-        csv_path = tmp_path / "escaped_quote_line_end.csv"
-        csv_path.write_bytes(
-            b'id,text\n1,"line with escaped quote at end ""\nstill in field"\n2,ok\n'
-        )
-
-        frame = ar.read_csv(csv_path)
-        df = ar.to_pandas(frame)
-        assert df["text"].iloc[0] == 'line with escaped quote at end "\nstill in field'
-        assert df["text"].iloc[1] == "ok"
-
-
 class TestScanCsv:
     def test_scan_schema(self, sample_csv):
         schema = ar.scan_csv(sample_csv)
